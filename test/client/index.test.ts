@@ -1964,6 +1964,45 @@ describe('outputSchema validation', () => {
     });
 
     /***
+     * Test: Keep Cached Metadata when a Refreshed outputSchema Fails to Compile
+     */
+    test('should keep the cached validators when listTools() fails to compile an output schema', async () => {
+        const server = new Server({ name: 'test-server', version: '1.0.0' }, { capabilities: { tools: {} } });
+
+        const validTool: Tool = {
+            name: 'test-tool',
+            inputSchema: { type: 'object', properties: {} },
+            outputSchema: {
+                type: 'object',
+                properties: { result: { type: 'string' } },
+                required: ['result'],
+                additionalProperties: false
+            }
+        };
+        const brokenTool: Tool = {
+            name: 'broken-tool',
+            inputSchema: { type: 'object', properties: {} },
+            outputSchema: { type: 'object', properties: { value: { type: 'not-a-json-schema-type' } } }
+        };
+        let tools = [validTool];
+
+        server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+        server.setRequestHandler(CallToolRequestSchema, async () => ({ structuredContent: { result: 42 } }));
+
+        const client = new Client({ name: 'test-client', version: '1.0.0' });
+        const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+        await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+
+        await client.listTools();
+        await expect(client.callTool({ name: 'test-tool' })).rejects.toThrow(/Structured content does not match/);
+
+        // A refresh that fails to compile one schema rejects and leaves the previous metadata in place.
+        tools = [brokenTool, validTool];
+        await expect(client.listTools()).rejects.toThrow();
+        await expect(client.callTool({ name: 'test-tool' })).rejects.toThrow(/Structured content does not match/);
+    });
+
+    /***
      * Test: Throw Error when Tool with outputSchema Returns No structuredContent
      */
     test('should throw error when tool with outputSchema returns no structuredContent', async () => {

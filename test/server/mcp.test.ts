@@ -290,6 +290,26 @@ describe.each(zodTestMatrix)('$zodVersionLabel', (entry: ZodMatrixEntry) => {
             expect(result.content).toEqual([{ type: 'text', text: 'Hello, world' }]);
         });
 
+        test('should keep listChanged: false from the constructor when something is registered', async () => {
+            const mcpServer = new McpServer(
+                { name: 'test server', version: '1.0' },
+                { capabilities: { tools: { listChanged: false }, resources: { listChanged: false }, prompts: { listChanged: false } } }
+            );
+            mcpServer.registerTool('tool', {}, async () => ({ content: [] }));
+            mcpServer.registerResource('resource', 'test://resource', {}, async () => ({ contents: [] }));
+            mcpServer.registerPrompt('prompt', {}, async () => ({ messages: [] }));
+
+            const client = new Client({ name: 'test client', version: '1.0' });
+            const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+            await Promise.all([client.connect(clientTransport), mcpServer.connect(serverTransport)]);
+
+            expect(client.getServerCapabilities()).toMatchObject({
+                tools: { listChanged: false },
+                resources: { listChanged: false },
+                prompts: { listChanged: false }
+            });
+        });
+
         test('should answer list requests with empty lists when a capability was declared and nothing is registered', async () => {
             const mcpServer = new McpServer(
                 { name: 'test server', version: '1.0' },

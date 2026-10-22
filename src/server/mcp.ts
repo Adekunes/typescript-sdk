@@ -41,6 +41,7 @@ import {
     PromptArgument,
     GetPromptResult,
     ReadResourceResult,
+    ServerCapabilities,
     ServerRequest,
     ServerNotification,
     ToolAnnotations,
@@ -120,6 +121,8 @@ export class McpServer {
     public readonly server: Server;
 
     private readonly _maxToolInputElements: number | undefined;
+    // The capabilities declared in the constructor; a `listChanged` set there wins over the default.
+    private readonly _declaredCapabilities: ServerCapabilities;
 
     private _registeredResources: { [uri: string]: RegisteredResource } = {};
     private _registeredResourceTemplates: {
@@ -132,6 +135,7 @@ export class McpServer {
     constructor(serverInfo: Implementation, options?: McpServerOptions) {
         this.server = new Server(serverInfo, options);
         this._maxToolInputElements = resolveMaxToolInputElements(options?.maxToolInputElements);
+        this._declaredCapabilities = options?.capabilities ?? {};
 
         // A capability declared in the options gets its handlers now, so registering after connect() works.
         if (options?.capabilities?.tools) {
@@ -189,7 +193,7 @@ export class McpServer {
 
         this.server.registerCapabilities({
             tools: {
-                listChanged: true
+                listChanged: this._declaredCapabilities.tools?.listChanged ?? true
             }
         });
 
@@ -561,7 +565,7 @@ export class McpServer {
 
         this.server.registerCapabilities({
             resources: {
-                listChanged: true
+                listChanged: this._declaredCapabilities.resources?.listChanged ?? true
             }
         });
 
@@ -641,7 +645,7 @@ export class McpServer {
 
         this.server.registerCapabilities({
             prompts: {
-                listChanged: true
+                listChanged: this._declaredCapabilities.prompts?.listChanged ?? true
             }
         });
 
